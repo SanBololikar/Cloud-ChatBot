@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>College Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+:root {
+  --primary: #00d4ff;
+  --secondary: #090979;
+  --accent: #ff6b6b;
+  --bg: linear-gradient(135deg, #0c0c0c, #1a1a2e);
+  --glass: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  font-family: 'Orbitron', sans-serif;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--primary);
+  overflow-x: hidden;
+}
+
+#chat-container {
+  width: 90%;
+  max-width: 500px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px var(--primary);
+  overflow: hidden;
+  animation: fadeIn 1s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+h3 {
+  text-align: center;
+  margin: 20px 0;
+  color: var(--primary);
+  text-shadow: 0 0 10px var(--primary);
+}
+
+#messages {
+  height: 400px;
+  overflow-y: auto;
+  padding: 20px;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid rgba(0,212,255,0.3);
+}
+
+.user, .bot {
+  margin-bottom: 15px;
+  padding: 10px 15px;
+  border-radius: 15px;
+  animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.user {
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+  color: #fff;
+  text-align: right;
+  margin-left: 50px;
+  box-shadow: 0 4px 15px rgba(0,212,255,0.3);
+}
+
+.bot {
+  background: linear-gradient(45deg, var(--secondary), #1a1a2e);
+  color: var(--primary);
+  text-align: left;
+  margin-right: 50px;
+  box-shadow: 0 4px 15px rgba(9,9,121,0.3);
+}
+
+#input-area {
+  padding: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+input {
+  flex-grow: 1;
+  padding: 15px;
+  border: 1px solid rgba(0,212,255,0.5);
+  border-radius: 25px;
+  background: rgba(255,255,255,0.1);
+  color: var(--primary);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 10px var(--primary);
+  background: rgba(255,255,255,0.2);
+}
+
+button {
+  padding: 15px 25px;
+  background: linear-gradient(45deg, var(--primary), var(--accent));
+  color: #000;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0,212,255,0.3);
+}
+
+button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0,212,255,0.5);
+}
+
+#matrix-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+  color: rgba(0,212,255,0.1);
+  opacity: 0.5;
+}
+
+.column {
+  position: absolute;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.2;
+  animation: fall linear infinite;
+}
+
+@keyframes fall {
+  0% { transform: translateY(-100vh); }
+  100% { transform: translateY(100vh); }
+}
+
+@media (max-width: 600px) {
+  #chat-container {
+    width: 95%;
+    margin: 10px;
+  }
+  #messages {
+    height: 300px;
+  }
+}
+</style>
+</head>
+<body>
+    <div id="chat-container">
+        <h3 style="text-align: center;">College Chatbot</h3>
+        <div id="messages"></div>
+        <form id="chat-form" id="input-area">
+            <input type="text" id="user-input" placeholder="Type your question..." required>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('chat-form');
+        const messages = document.getElementById('messages');
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('user-input');
+            const text = input.value;
+
+            messages.innerHTML += `<div class="user">You: ${text}</div>`;
+            input.value = '';
+
+            const response = await fetch('/get_response', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `message=${text}`
+            });
+            const data = await response.json();
+            messages.innerHTML += `<div class="bot">Bot: ${data.reply}</div>`;
+            messages.scrollTop = messages.scrollHeight;
+        };
+
+        // Matrix background effect
+        const matrixBg = document.getElementById('matrix-bg');
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()';
+
+        for (let i = 0; i < 20; i++) {
+            const column = document.createElement('div');
+            column.className = 'column';
+            column.style.left = Math.random() * 100 + '%';
+            column.style.animationDuration = Math.random() * 5 + 5 + 's';
+            column.style.animationDelay = Math.random() * 5 + 's';
+            let text = '';
+            for (let j = 0; j < 30; j++) {
+                text += chars.charAt(Math.floor(Math.random() * chars.length)) + '<br>';
+            }
+            column.innerHTML = text;
+            matrixBg.appendChild(column);
+        }
+    </script>
+</body>
+</html>
