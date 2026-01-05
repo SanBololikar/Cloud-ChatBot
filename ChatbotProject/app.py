@@ -1,5 +1,7 @@
 import os
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session
+# Use this line to make sure Flask finds the 'templates' folder correctly
+app = Flask(__name__, template_folder='templates')
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
