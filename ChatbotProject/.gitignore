@@ -1,0 +1,20 @@
+# Sensitive Data - Keep these out of GitHub!
+.env
+*.env
+
+# Python junk (compiled files)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+env/
+.venv/
+
+# IDE settings
+.idea/
+.vscode/
+
+# Logs
+*.log
