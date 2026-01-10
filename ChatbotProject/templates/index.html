@@ -6,17 +6,11 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div style="position: absolute; top: 20px; right: 20px; z-index: 1000;">
-    <a href="/admin" style="
-        background-color: #6c757d; 
-        color: white; 
-        padding: 10px 15px; 
-        text-decoration: none; 
-        border-radius: 5px; 
-        font-family: Arial, sans-serif;
-        font-weight: bold;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    ">
+    <div style="position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px;">
+    <a href="/student_login_page" style="background: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+        👤 Student Login
+    </a>
+    <a href="/admin" style="background: #6c757d; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; font-weight: bold;">
         ⚙️ Admin Panel
     </a>
     </div>
