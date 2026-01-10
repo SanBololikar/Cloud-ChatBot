@@ -18,8 +18,8 @@ supabase: Client = create_client(url, key)
 
 @app.route('/')
 def home():
-    """Student Chatbot Interface"""
-    return render_template('index.html')
+    student_name = session.get('student_name', 'Guest')
+    return render_template('index.html', name=student_name)
 
 @app.route('/admin')
 def admin_panel():
@@ -122,11 +122,30 @@ def ask():
     return jsonify({"response": bot_response})
 
 # --- STUDENT LOGIN TEST ---
-@app.route('/login_test/<roll_no>')
-def login_test(roll_no):
-    """Simple route to simulate a student logging in"""
-    session['roll_no'] = roll_no
-    return f"Logged in as {roll_no}. <a href='/'>Go to Chat</a>"
+@app.route('/student')
+def student_login_page():
+    """Shows the student login form"""
+    return render_template('student.html')
+
+@app.route('/login_student', methods=['POST'])
+def login_student():
+    """Handles the login form and sets the session"""
+    roll_no = request.form.get('roll_no')
+    
+    # Check if student exists in Supabase
+    check = supabase.table("profiles").select("full_name").eq("student_roll_no", roll_no).execute()
+    
+    if check.data:
+        session['roll_no'] = roll_no
+        session['student_name'] = check.data[0]['full_name']
+        return redirect(url_for('home'))
+    else:
+        return "Roll Number not found! Please ask Admin to register you. <a href='/student_login_page'>Try Again</a>"
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('home'))
 
 if __name__ == '__main__':
     app.run(debug=True)
