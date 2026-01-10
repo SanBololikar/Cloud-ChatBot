@@ -82,25 +82,42 @@ def add_grade():
 @app.route('/ask', methods=['POST'])
 def ask():
     user_input = request.json.get("message", "").lower()
-    bot_response = "I'm sorry, I don't have information on that. I have logged your question for the admin."
+    bot_response = "I'm sorry, I don't have information on that. I have logged your question."
 
     try:
-        # 1. Search Knowledge Base
-        kb_query = supabase.table("bot_knowledge").select("bot_response").ilike("question_pattern", f"%{user_input}%").execute()
-        
-        if kb_query.data:
-            bot_response = kb_query.data[0]['bot_response']
+        # FEATURE A: Check if student is asking for marks/grades
+        if "mark" in user_input or "grade" in user_input or "result" in user_input:
+            roll_no = session.get('roll_no')
+            if not roll_no:
+                bot_response = "Please login first to see your grades (use /login_test/YOUR_ROLL_NO)."
+            else:
+                # 1. Get Student UUID from Roll No
+                profile = supabase.table("profiles").select("id").eq("student_roll_no", roll_no).execute()
+                if profile.data:
+                    u_id = profile.data[0]['id']
+                    # 2. Fetch Grades
+                    grades = supabase.table("student_grades").select("subject_name, grade_received").eq("student_id", u_id).execute()
+                    
+                    if grades.data:
+                        response_parts = [f"{g['subject_name']}: {g['grade_received']}" for g in grades.data]
+                        bot_response = "Your grades are: " + ", ".join(response_parts)
+                    else:
+                        bot_response = "I found your profile, but no grades are uploaded yet."
+                else:
+                    bot_response = "I couldn't find a profile for your roll number."
 
-        # 2. AUTOMATIC DATA COLLECTION (Requirement Check)
-        # We log EVERY chat to the chat_logs table
-        log_data = {
-            "user_query": user_input,
-            "bot_response": bot_response
-        }
-        supabase.table("chat_logs").insert(log_data).execute()
+        # FEATURE B: Otherwise, check general knowledge
+        else:
+            kb_query = supabase.table("bot_knowledge").select("bot_response").ilike("question_pattern", f"%{user_input}%").execute()
+            if kb_query.data:
+                bot_response = kb_query.data[0]['bot_response']
+
+        # FEATURE C: Data Collection (Log everything)
+        supabase.table("chat_logs").insert({"user_query": user_input, "bot_response": bot_response}).execute()
 
     except Exception as e:
-        print(f"Database error: {e}")
+        print(f"Error: {e}")
+        bot_response = "System error. Please try again later."
 
     return jsonify({"response": bot_response})
 
