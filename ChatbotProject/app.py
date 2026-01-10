@@ -1,54 +1,115 @@
 import os
-from flask import Flask, render_template, request, jsonify, session
-# Use this line to make sure Flask finds the 'templates' folder correctly
-app = Flask(__name__, template_folder='templates')
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
-app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "college_bot_secure_key")
 
-# Connect to your Supabase
-url: str = os.getenv("SUPABASE_URL")
-key: str = os.getenv("SUPABASE_KEY")
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "your_fallback_secret_key")
+
+# Supabase Setup
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
-def get_chat_response(user_input):
-    user_input = user_input.strip().lower()
-
-    # 1. Search for Personalized Info (Grades)
-    if "grade" in user_input or "marks" in user_input:
-        user_id = session.get('user_id')
-        if user_id:
-            res = supabase.table("student_grades").select("*").eq("student_id", user_id).execute()
-            if res.data:
-                results = [f"{g['subject_name']}: {g['grade_received']}" for g in res.data]
-                return "Your grades are: " + ", ".join(results)
-            return "I couldn't find any grades for your account."
-        return "Please log in to see your grades."
-
-    # 2. Search General Knowledge (Fixes the AIML 'Default Response' error)
-    # This looks at your 'bot_knowledge' table in Supabase
-    kb_res = supabase.table("bot_knowledge").select("bot_response").ilike("question_pattern", f"%{user_input}%").execute()
-    
-    if kb_res.data:
-        return kb_res.data[0]['bot_response']
-
-    # 3. Log Unanswered Questions
-    supabase.table("chat_logs").insert({"user_query": user_input, "bot_response": "Unknown"}).execute()
-    return "I'm not sure about that. I've logged your question for the admin!"
+# --- ROUTES ---
 
 @app.route('/')
-def index():
+def home():
+    """Student Chatbot Interface"""
     return render_template('index.html')
+
+@app.route('/admin')
+def admin_panel():
+    """Admin Dashboard Interface"""
+    return render_template('admin.html')
+
+# --- ADMIN ACTIONS (Data Collection) ---
+
+@app.route('/admin/add_student', methods=['POST'])
+def add_student():
+    roll_no = request.form.get('roll_no')
+    full_name = request.form.get('full_name')
+    dept = request.form.get('dept')
+
+    try:
+        # We generate a random UUID for the profile since we aren't using Auth Signup for this test
+        import uuid
+        new_id = str(uuid.uuid4())
+        
+        data = {
+            "id": new_id,
+            "student_roll_no": roll_no,
+            "full_name": full_name,
+            "department": dept
+        }
+        supabase.table("profiles").insert(data).execute()
+        return "Student Registered Successfully! <a href='/admin'>Go Back</a>"
+    except Exception as e:
+        return f"Error: {str(e)} <a href='/admin'>Go Back</a>"
+
+@app.route('/admin/add_grade', methods=['POST'])
+def add_grade():
+    roll_no = request.form.get('roll_no')
+    subject = request.form.get('subject')
+    grade = request.form.get('grade')
+
+    try:
+        # 1. Find the student UUID using the Roll Number
+        student_query = supabase.table("profiles").select("id").eq("student_roll_no", roll_no).execute()
+        
+        if not student_query.data:
+            return "Error: Roll Number not found. <a href='/admin'>Go Back</a>"
+        
+        student_uuid = student_query.data[0]['id']
+
+        # 2. Insert Grade
+        grade_data = {
+            "student_id": student_uuid,
+            "subject_name": subject,
+            "grade_received": grade,
+            "semester": 1 # Defaulting to 1 for this test
+        }
+        supabase.table("student_grades").insert(grade_data).execute()
+        return "Grade Assigned Successfully! <a href='/admin'>Go Back</a>"
+    except Exception as e:
+        return f"Error: {str(e)} <a href='/admin'>Go Back</a>"
+
+# --- CHATBOT LOGIC ---
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    data = request.get_json()
-    user_message = data.get("message")
-    response_text = get_chat_response(user_message)
-    return jsonify({"response": response_text})
+    user_input = request.json.get("message", "").lower()
+    bot_response = "I'm sorry, I don't have information on that. I have logged your question for the admin."
+
+    try:
+        # 1. Search Knowledge Base
+        kb_query = supabase.table("bot_knowledge").select("bot_response").ilike("question_pattern", f"%{user_input}%").execute()
+        
+        if kb_query.data:
+            bot_response = kb_query.data[0]['bot_response']
+
+        # 2. AUTOMATIC DATA COLLECTION (Requirement Check)
+        # We log EVERY chat to the chat_logs table
+        log_data = {
+            "user_query": user_input,
+            "bot_response": bot_response
+        }
+        supabase.table("chat_logs").insert(log_data).execute()
+
+    except Exception as e:
+        print(f"Database error: {e}")
+
+    return jsonify({"response": bot_response})
+
+# --- STUDENT LOGIN TEST ---
+@app.route('/login_test/<roll_no>')
+def login_test(roll_no):
+    """Simple route to simulate a student logging in"""
+    session['roll_no'] = roll_no
+    return f"Logged in as {roll_no}. <a href='/'>Go to Chat</a>"
 
 if __name__ == '__main__':
     app.run(debug=True)
